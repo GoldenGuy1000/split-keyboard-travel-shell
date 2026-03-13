@@ -5,11 +5,12 @@ fdm_printing = true; // changes the screw counterbore to be more printable
     layer_height = 0.2; // to add one-layer rectangles to the counterbore
 
 /* [Case] */
-// Distance from the edge of the pcb to the outer wall
+// distance from the edge of the pcb to the outer wall
 finger_space = 12;
 
 wall_thickness = 1.5;
 
+// don't disable this without additional support of some sort
 enable_outer_walls = true;
 
 bottom_thickness = 2.8;
@@ -35,7 +36,7 @@ screw_head_height = 1.6;
 
 /* [Feet Indents] */
 enable_feet_indents = true;
-silicon_dot_diameter = 6.4;
+silicon_dot_diameter = 6.2;
 silicon_dot_indent_depth = 1;
 silicon_dot_positions = [[21,-17],[145,9],[141,63],[10,55]];
 
@@ -51,14 +52,17 @@ magnet_positions = [[0, 0.45], [4, 0.5], [9, 0.5], [10, 0.8]];
 
 /* [Anti-Sheer] */
 enable_anti_sheer = true;
-sheer_sphere_radius = 3;
-anti_sheer_offset_angle = 86;
+sheer_sphere_radius = 3.5;
+anti_sheer_offset_angle = 88;
+// extra slop to make sure the case can close flush
+extra_insertion_depth = 0.3;
 
 // TODO: paramaterize the charging port & power switch holes
 
 /* [Hidden] */
 $fa = 1;
 $fs = 0.4;
+preview_nicety = $preview ? 0.001 : 0; // Stops Z fighting in the preview
 
 // Takes points and treats them as offsets from the sum of previous points
 function _integral_rec(v, sum=0, i=0, arr=[]) = (i == len(v)) ? arr :
@@ -150,7 +154,7 @@ module pcb_bottom() {
 }
 
 module screw(pos) {
-    translate([each pos, -0.001]) union()
+    translate([each pos, -preview_nicety]) union()
     {
         linear_extrude(bottom_thickness+0.1) circle(screw_thread_radius);
         linear_extrude(screw_head_height) circle(screw_head_radius);
@@ -222,7 +226,7 @@ module magnet_pillar() {
 
     difference() {
         cylinder(h=magnet_pillar_height,r=(magnet_diameter+magnet_wall_thickness)/2);
-        translate([0,0,post_height]) cylinder(h=magnet_height+0.001,r=magnet_radius);
+        translate([0,0,post_height]) cylinder(h=magnet_height+preview_nicety,r=magnet_radius);
     }
     }
 }
@@ -267,11 +271,16 @@ module anti_sheer_sphere(male=true) {
     if (enable_anti_sheer) {
     if (male) {
         base();
-        translate([0,0,upper_height-lower_height]) sphere(sheer_sphere_radius - 0.5);
+        translate([0,0,upper_height-lower_height]) sphere(sheer_sphere_radius - 0.8);
     }
     else { difference() {
         base();
-        translate([0,0,upper_height-lower_height]) sphere(sheer_sphere_radius - 0.45);
+        translate([0,0,-extra_insertion_depth])
+        translate([0,0,upper_height-lower_height])
+        {
+            sphere(sheer_sphere_radius - 0.75);
+            cylinder(h=extra_insertion_depth+preview_nicety, r=sheer_sphere_radius - 0.75);
+        }
     }}
     }
 }
@@ -310,7 +319,7 @@ module hand_access() {
 
 module silicon_dot_indent() {
     if (enable_feet_indents) {
-    translate([0,0,silicon_dot_indent_depth-0.001])
+    translate([0,0,silicon_dot_indent_depth-preview_nicety])
     rotate([0,180,0])
     linear_extrude(silicon_dot_indent_depth, scale=1.25)
     circle(r=silicon_dot_diameter/2);
@@ -332,7 +341,7 @@ module keyboard(flip=false) {
     }
 }
 
-translate([0,-60,0]) rotate([0,0,180]) mirror([1,0,0]) keyboard(flip=true);
+translate([0,155+finger_space,0]) mirror([0,1,0]) keyboard(flip=true);
 keyboard();
 
 // roof() can do chamfers, but needs to be enabled first apparently
